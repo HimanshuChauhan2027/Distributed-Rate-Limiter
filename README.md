@@ -2,30 +2,74 @@
 
 A production-grade distributed rate limiter that enforces **shared request limits across multiple backend instances**, using Redis and atomic Lua scripts, fronted by an NGINX load balancer — with Prometheus + Grafana monitoring built in.
 
-Built by **Himanshu Chauhan** — NIT Kurukshetra
-
 ---
 
-## Table of Contents
+## Tech Stack
 
-- [Architecture](#architecture)
-- [Why Redis + Lua](#why-redis--lua)
-- [Rate Limiting Algorithms](#rate-limiting-algorithms)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [API Endpoints](#api-endpoints)
-- [Fail-Open vs Fail-Closed](#fail-open-vs-fail-closed)
-- [Project Structure](#project-structure)
-- [Testing](#testing)
-- [Monitoring](#monitoring)
-- [Known Limitations](#known-limitations)
-- [Tech Stack](#tech-stack)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![Lua](https://img.shields.io/badge/Lua-2C2D72?style=for-the-badge&logo=lua&logoColor=white)
+![NGINX](https://img.shields.io/badge/NGINX-009639?style=for-the-badge&logo=nginx&logoColor=white)
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
+![k6](https://img.shields.io/badge/k6-7D64FF?style=for-the-badge&logo=k6&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+
+| Component | Technology |
+|---|---|
+| Backend | Node.js, Express |
+| Rate limiting | Redis + Lua scripts |
+| Load balancer | NGINX |
+| Frontend | Vanilla HTML/CSS/JS |
+| Monitoring | Prometheus + Grafana |
+| Load testing | k6 |
+| Containerization | Docker Compose |
 
 ---
 
 ## Architecture
 
-![Architecture diagram](docs/architecture.svg)
+```
+                              ┌──────────────────┐
+                              │  Browser / Client │
+                              └─────────┬─────────┘
+                                        │
+                                        ▼
+                          ┌───────────────────────────┐
+                          │       NGINX  (:8080)       │
+                          │  Load Balancer (round-robin)│
+                          │   + Static Dashboard Files  │
+                          └───────┬───────┬───────┬────┘
+                                  │       │       │
+                    ┌─────────────┘       │       └─────────────┐
+                    ▼                     ▼                     ▼
+          ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+          │    backend-1      │ │    backend-2      │ │    backend-3      │
+          │    (Node.js)      │ │    (Node.js)      │ │    (Node.js)      │
+          │ :8080 → host :8081│ │ :8080 → host :8082│ │ :8080 → host :8083│
+          └─────────┬─────────┘ └─────────┬─────────┘ └─────────┬─────────┘
+                    │                     │                     │
+                    └──────────┬──────────┴──────────┬──────────┘
+                               │  shared rate-limit state (EVALSHA)
+                               ▼
+                     ┌───────────────────────┐
+                     │      Redis (:6379)     │
+                     │   Lua scripts (atomic)  │
+                     │ fixed_window · sliding_ │
+                     │  window · token_bucket  │
+                     └───────────┬─────────────┘
+                                 │
+                                 │ (backends also expose /metrics)
+                                 ▼
+                     ┌─────────────────────┐      ┌─────────────────────┐
+                     │  Prometheus (:9090)  │─────▶│   Grafana (:3000)    │
+                     │  scrapes every 5s     │      │  pre-built dashboard │
+                     └─────────────────────┘      └─────────────────────┘
+```
 
 1. **NGINX** receives every client request and round-robins it across three Node.js backend instances.
 2. Each backend calls a **Lua script** on Redis to check and update the rate-limit counter for that client.
@@ -241,17 +285,14 @@ Prometheus scrapes all three backend instances every 5 seconds. Grafana ships wi
 
 ---
 
-## Tech Stack
+## Future Improvements
 
-| Component | Technology |
-|---|---|
-| Backend | Node.js, Express |
-| Rate limiting | Redis + Lua scripts |
-| Load balancer | NGINX |
-| Frontend | Vanilla HTML/CSS/JS |
-| Monitoring | Prometheus + Grafana |
-| Load testing | k6 |
-| Containerization | Docker Compose |
+- Redis connection pooling for higher concurrency
+- Active health checks (NGINX Plus or a lightweight sidecar)
+- Aggregated cross-instance stats on `/api/status`
+- Sliding Window using a counter-based approximation to cut memory use
+- Auto-scaling backend instances behind NGINX
+- Per-route / per-API-key rate limit rules
 
 ---
 
