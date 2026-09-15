@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Dashboard for a distributed rate limiter with shared limits across backend instances, enforced atomically in Redis." />
+  <title>Distributed Rate Limiter — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Ambient background glow -->
+  <div class="bg-glow bg-glow--1" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow--2" aria-hidden="true"></div>
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-left">
+        <div class="logo" aria-hidden="true">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <rect width="36" height="36" rx="8" fill="url(#logo-grad)"/>
+            <path d="M10 18h16M18 10v16" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+            <circle cx="18" cy="18" r="6" stroke="#fff" stroke-width="1.5" fill="none" opacity="0.6"/>
+            <defs>
+              <linearGradient id="logo-grad" x1="0" y1="0" x2="36" y2="36">
+                <stop stop-color="#6366f1"/>
+                <stop offset="1" stop-color="#06b6d4"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div>
+          <h1>Distributed Rate Limiter</h1>
+          <p class="header-sub">Shared limits across three backend instances · enforced in Redis</p>
+        </div>
+      </div>
+      <div id="conn-status" class="conn-pill">
+        <span class="conn-dot"></span>
+        <span class="conn-text">connecting</span>
+      </div>
+    </div>
+    <div class="header-accent"></div>
+  </header>
+
+  <main>
+
+    <!-- ═══════ Gauge + Stats ═══════ -->
+    <section class="hero">
+      <div class="gauge-card glass-card">
+        <div class="gauge-wrap">
+          <svg class="gauge-svg" viewBox="0 0 200 118" fill="none" role="img" aria-label="Requests remaining gauge">
+            <defs>
+              <linearGradient id="gauge-grad" x1="20" y1="100" x2="180" y2="100" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#6366f1"/>
+                <stop offset="0.5" stop-color="#06b6d4"/>
+                <stop offset="1" stop-color="#22c55e"/>
+              </linearGradient>
+              <filter id="gauge-glow">
+                <feGaussianBlur stdDeviation="4" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <path class="gauge-track" d="M 20 100 A 80 80 0 0 1 180 100" fill="none"/>
+            <path id="gauge-value" class="gauge-fill" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" filter="url(#gauge-glow)"/>
+          </svg>
+          <div class="gauge-readout">
+            <span id="gauge-number" class="gauge-number">&ndash;</span>
+            <span id="gauge-caption" class="gauge-caption">no requests sent yet</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card glass-card">
+          <span class="stat-icon stat-icon--algo">⚙</span>
+          <div class="stat-body">
+            <dt>Algorithm</dt>
+            <dd id="stat-algorithm">&ndash;</dd>
+          </div>
+        </div>
+        <div class="stat-card glass-card">
+          <span class="stat-icon stat-icon--redis">⬢</span>
+          <div class="stat-body">
+            <dt>Redis</dt>
+            <dd id="stat-redis">&ndash;</dd>
+          </div>
+        </div>
+        <div class="stat-card glass-card">
+          <span class="stat-icon stat-icon--total">↗</span>
+          <div class="stat-body">
+            <dt>Total Requests</dt>
+            <dd id="stat-total">0</dd>
+          </div>
+        </div>
+        <div class="stat-card glass-card">
+          <span class="stat-icon stat-icon--allowed">✓</span>
+          <div class="stat-body">
+            <dt>Allowed</dt>
+            <dd id="stat-allowed" class="text-allowed">0</dd>
+          </div>
+        </div>
+        <div class="stat-card glass-card">
+          <span class="stat-icon stat-icon--blocked">✕</span>
+          <div class="stat-body">
+            <dt>Blocked</dt>
+            <dd id="stat-blocked" class="text-blocked">0</dd>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════ Backend Instances ═══════ -->
+    <section class="section">
+      <h2 class="section-title">
+        <span class="section-icon">⊞</span>
+        Backend Instances
+      </h2>
+      <div id="backend-list" class="backend-grid"></div>
+    </section>
+
+    <!-- ═══════ Rate Limit Tester ═══════ -->
+    <section class="section">
+      <h2 class="section-title">
+        <span class="section-icon">⚡</span>
+        Rate Limit Tester
+      </h2>
+      <p class="section-hint">Requests go through NGINX at <code>/api/limited</code> and round-robin across the three backend instances.</p>
+
+      <div class="controls glass-card">
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">User ID or IP</span>
+            <input id="input-user" type="text" value="user-1" autocomplete="off" spellcheck="false" />
+          </label>
+          <label class="field">
+            <span class="field-label">Requests</span>
+            <input id="input-count" type="number" value="20" min="1" max="500" />
+          </label>
+          <label class="field">
+            <span class="field-label">Interval (ms)</span>
+            <input id="input-interval" type="number" value="100" min="0" max="5000" />
+          </label>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn--primary" onclick="sendRequests(1)">
+            <span class="btn-icon">▶</span> Send 1
+          </button>
+          <button class="btn btn--secondary" onclick="sendRequests(10)">Send 10</button>
+          <button class="btn btn--secondary" onclick="sendRequests(100)">Send 100</button>
+          <button class="btn btn--secondary" onclick="sendRequests(document.getElementById('input-count').value)">Send N</button>
+          <button class="btn btn--ghost" onclick="clearLog()">Clear log</button>
+        </div>
+
+        <div class="live-counters">
+          <div class="live-counter">
+            <span class="live-counter-label">Allowed</span>
+            <span id="counter-allowed" class="live-counter-value text-allowed">0</span>
+          </div>
+          <div class="live-counter">
+            <span class="live-counter-label">Blocked</span>
+            <span id="counter-blocked" class="live-counter-value text-blocked">0</span>
+          </div>
+          <div class="live-counter">
+            <span class="live-counter-label">Remaining</span>
+            <span id="counter-remaining" class="live-counter-value">–</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Terminal Log -->
+      <div class="terminal glass-card">
+        <div class="terminal-chrome">
+          <div class="terminal-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="terminal-title">request log</span>
+        </div>
+        <div id="request-log" class="terminal-body">
+          <div class="log-empty" id="log-empty">No requests sent yet. Use the controls above to send traffic.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>Distributed Rate Limiter · Node.js / Redis / NGINX</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

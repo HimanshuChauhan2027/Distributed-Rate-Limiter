@@ -1,0 +1,75 @@
+{
+  "title": "Distributed Rate Limiter",
+  "uid": "rate-limiter-dashboard",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Requests/sec (allowed vs blocked)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum(rate(ratelimiter_requests_allowed_total[1m]))", "legendFormat": "allowed" },
+        { "expr": "sum(rate(ratelimiter_requests_blocked_total[1m]))", "legendFormat": "blocked" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Requests/sec per backend instance",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "sum by (instance) (rate(ratelimiter_requests_total[1m]))", "legendFormat": "{{instance}}" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Average latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "ratelimiter_request_latency_ms_avg", "legendFormat": "{{instance}}" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Active (in-flight) requests",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "ratelimiter_active_requests", "legendFormat": "{{instance}}" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "HTTP status codes",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "sum by (code) (rate(ratelimiter_http_status_total[1m]))", "legendFormat": "{{code}}" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Redis errors/sec",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "expr": "sum(rate(ratelimiter_redis_errors_total[1m]))", "legendFormat": "redis errors" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Current algorithm",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 24 },
+      "targets": [
+        { "expr": "ratelimiter_algorithm_info", "legendFormat": "{{instance}} - {{algorithm}}" }
+      ]
+    }
+  ]
+}
